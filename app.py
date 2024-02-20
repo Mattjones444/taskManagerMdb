@@ -84,19 +84,22 @@ def profile(username):
     # grab the session user's username from db
     username = mongo.db.users.find_one(
         {"username": session["user"]})["username"]
-    
+
     if session["user"]:
         return render_template("profile.html", username=username)
-    return render_template("profile.html", username=username)
+
+    return redirect(url_for("login"))
+
 
 @app.route("/logout")
 def logout():
-    # remove user from session
-    flash("You have been logged out!")
+    # remove user from session cookie
+    flash("You have been logged out")
     session.pop("user")
     return redirect(url_for("login"))
 
-@app.route("/add_task", methods = ["GET", "POST"])
+
+@app.route("/add_task", methods=["GET", "POST"])
 def add_task():
     if request.method == "POST":
         is_urgent = "on" if request.form.get("is_urgent") else "off"
@@ -110,10 +113,30 @@ def add_task():
         }
         mongo.db.tasks.insert_one(task)
         flash("Task Successfully Added")
-        return redirect(url_for('get_tasks'))
+        return redirect(url_for("get_tasks"))
 
-    categories=mongo.db.categories.find().sort("category_name", 1)
-    return render_template("add_task.html", categories = categories)
+    categories = mongo.db.categories.find().sort("category_name", 1)
+    return render_template("add_task.html", categories=categories)
+
+
+@app.route("/edit_task/<task_id>", methods=["GET", "POST"])
+def edit_task(task_id):
+    if request.method == "POST":
+        is_urgent = "on" if request.form.get("is_urgent") else "off"
+        submit = {
+            "category_name": request.form.get("category_name"),
+            "task_name": request.form.get("task_name"),
+            "task_description": request.form.get("task_description"),
+            "is_urgent": is_urgent,
+            "due_date": request.form.get("due_date"),
+            "created_by": session["user"]
+        }
+        mongo.db.tasks.update_all({"_id": ObjectId(task_id)}, submit)
+        flash("Task Successfully Updated")
+
+    task = mongo.db.tasks.find_one({"_id": ObjectId(task_id)})
+    categories = mongo.db.categories.find().sort("category_name", 1)
+    return render_template("edit_task.html", task=task, categories=categories)
 
 
 if __name__ == "__main__":
